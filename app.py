@@ -74,7 +74,7 @@ app = Flask(__name__)
 #     "Content_Type": "application/json",
 #     "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN
 # }
-
+help_dict = {"1": "top 10 price"}
 @app.route("/")
 def hello_world():
     return "hello world!"
@@ -99,20 +99,25 @@ def callback():
 # botにメッセージを送ったときの処理
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    result = calculate_top10_TWpricetock()
-    print(result)
+    if event.message.text == '1':
+            msg = calculate_top10_TWpricetock().to_string()
+            print(msg)
+    elif event.message.text == 'help':
+            msg = '\n'.join([f'{key}: {value}' for key, value in help_dict.items()])
+    elif event.message.text == 'パー':
+            msg = 'チョキ'
+    else:
+            return
+    
+    
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(result.to_string()))
-    print("返信完了!!\ntext:", event.message.text)
+        TextSendMessage(msg))
+    print("返信完了!!\ntext:", msg)
 
 @handler.add(UnfollowEvent)
 def handle_unfollow(event):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            conn.autocommit = True
-            cur.execute('DELETE FROM users WHERE user_id = %s', [event.source.user_id])
-    print("userIdの削除OK!!")
+    print("userIdの削除OK!!",event.source.user_id)
 
 # アプリの起動
 if __name__ == "__main__":
