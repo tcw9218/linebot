@@ -99,9 +99,11 @@ def callback():
 # botにメッセージを送ったときの処理
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    result = calculate_top10_TWpricetock()
+    print(result)
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=event.message.text))
+        TextSendMessage(result.to_string()))
     print("返信完了!!\ntext:", event.message.text)
 
 @handler.add(UnfollowEvent)
