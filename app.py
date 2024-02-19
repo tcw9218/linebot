@@ -114,7 +114,8 @@ def handle_unfollow(event):
 
 # アプリの起動
 if __name__ == "__main__":
+    finlab_setting()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-    
+
 ### End
