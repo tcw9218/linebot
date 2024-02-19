@@ -1,3 +1,4 @@
 line-bot-sdk>=3.8.0
 flask>=3.0.2
 requests>=2.28.0
+finlab>=1.0.5

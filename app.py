@@ -1,27 +1,74 @@
-# import finlab
-# from finlab import data
+import finlab
+from finlab import data
 from flask import Flask, request, abort
 import requests, os
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, ImageMessage, ImageSendMessage, FollowEvent, UnfollowEvent
 from io import BytesIO
-# import psycopg2
+import pandas as pd
 
-# finlab.login('7SHZu9Y2jRV/TJ6outOrHEaZHKZiatjOO1joDGtwd8b42GNYOrA650bwvHlXqbyy#free')
-# data.get('price:收盤價')
+FINLAB_TOKEN = os.environ["FINLAB_TOKEN"]
+CHANNEL_ACCESS_TOKEN = os.environ["CHANNEL_ACCESS_TOKEN"]
+CHANNEL_SECRET = os.environ["CHANNEL_SECRET"]
+line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(CHANNEL_SECRET)
 
+def search_and_extract(df, search_column, search_values, result_column):
+    """
+    Search for rows in a DataFrame based on values in a specified column,
+    and extract values from another specified column for the matching rows.
 
-LINE_CHANNEL_SECRET = "f2fe89950508f5bb231d88482d19d6b5"
-LINE_CHANNEL_ACCESS_TOKEN = "m05ZcFrzG9ojmIKaVvh9joYAcq0QYSIfWvjYILZ2m+ypIOhUXQtI98pHG4RSvX1YASaCp2defX5dAviryAb7YHW/OjYkIcyUloeQQImUVul8p/O0t030gwSl6zE5cxbLUHDmgS80xiAFSAGJswP/jAdB04t89/1O/w1cDnyilFU="
-# DATABASE_URL = "~~~~~あなたのデータベースURL~~~~~" # 後ほどHerokuでPostgreSQLデータベースURLを取得
-# HEROKU_APP_NAME = "~~~~~あなたのHerokuアプリ名~~~~~" # 後ほど作成するHerokuアプリ名
+    Parameters:
+    - df: DataFrame
+    - search_column: str, the column to search for values
+    - search_values: list or array, values to use as keys for searching
+    - result_column: str, the column from which to extract values for matching rows
+
+    Returns:
+    - DataFrame with search values and corresponding result values
+    """
+    result_values = []
+
+    for value_to_search in search_values:
+        matching_row = df[df[search_column] == value_to_search]
+
+        if not matching_row.empty:
+            result_value = matching_row[result_column].values[0]
+            result_values.append(result_value)
+        else:
+            result_values.append(None)
+
+    result_df = pd.DataFrame({search_column: search_values, result_column: result_values})
+    return result_df
+
+def finlab_setting():
+    finlab.login(FINLAB_TOKEN)
+    data.set_storage(data.FileStorage( "./db"))
+
+def calculate_top10_TWpricetock():
+    price = data.get('price:收盤價')
+    market_cap = data.get('etl:market_value')
+    company_basic_info = data.get('company_basic_info')
+
+    sorted_market = market_cap.T.sort_values(by=market_cap.index[-1], ascending=False).T
+    sorted_price = price.T.sort_values(by=price.index[-1], ascending=False).T
+
+    top10_price_df =  sorted_price.iloc[-1, :10].to_frame().reset_index(drop=True)
+
+    top10_price  = sorted_price.columns[:10]
+
+    df_with_company_name = search_and_extract(company_basic_info, 'stock_id', top10_price, '公司簡稱')
+    df_with_price = pd.concat([df_with_company_name, top10_price_df[top10_price_df.columns]], axis=1)
+    last_column_label = df_with_price.columns[-1]
+
+    df_with_price = df_with_price.rename(columns={last_column_label: 'Price'})
+    return df_with_price
+
 
 app = Flask(__name__)
 # Heroku = "https://{}.herokuapp.com/".format(HEROKU_APP_NAME)
 
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 # header = {
 #     "Content_Type": "application/json",
@@ -67,14 +114,7 @@ def handle_unfollow(event):
 
 # アプリの起動
 if __name__ == "__main__":
-    # 初回のみデータベースのテーブル作成
-    # with get_connection() as conn:
-    #     with conn.cursor() as cur:
-    #         conn.autocommit = True
-    #         cur.execute('CREATE TABLE IF NOT EXISTS users(user_id TEXT)')
-    
-    # LINE botをフォローしているアカウントのうちランダムで一人にプッシュ通知
-    # push()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    
 ### End
